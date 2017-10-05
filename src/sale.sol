@@ -71,9 +71,30 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
     function buy(uint price) {
         uint requested = wmul(msg.value, price);
+        uint collected = msg.value;
 
         if (requested > token.balanceOf(this)) {
+            requested = token.balanceOf(this);
+            collected = wdiv(requested, price);
+            endTime = time();
+        }
 
+        if (sold < softCap && add(sold, requested) > softCap) {
+            endTime = time() + softCapTimeLimit;
+        }
+
+        sold = add(sold, requested);
+
+        token.start();
+        token.push(msg.sender, requested);
+        token.stop();
+
+        exec(multisig, collected); // send collected ETH to multisig
+
+        // return excess ETH to the user
+        uint refund = sub(msg.value, collected);
+        if(refund > 0) {
+            exec(msg.sender, refund);
         }
     }
 
