@@ -4,7 +4,7 @@ import "ds-test/test.sol";
 
 import "./StandardIco.sol";
 
-contract StandardIcoTest is DSTest {
+contract StandardSaleTest is DSTest {
     StandardIco ico;
 
     function setUp() {
