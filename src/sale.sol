@@ -101,5 +101,25 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     function() payable stoppable note {
 
         require(time() > startTime && time() < endTime);
+        buy(per);
+    }
+
+    function finalize() auth {
+        require(time() >= endTime);
+
+        // enable transfer
+        token.start();
+
+        // transfer undistributed Token
+        token.push(multisig, token.balanceOf(this));
+
+        // owner -> multisig
+        token.setOwner(multisig);
+    }
+
+    // because sometimes people get a little too excited and send the wrong token
+    function transferTokens(address dst, uint wad, address tkn_) auth {
+        ERC20 tkn = ERC20(tkn_);
+        tkn.transfer(dst, wad);
     }
 }
