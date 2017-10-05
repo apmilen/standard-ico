@@ -4,8 +4,10 @@ import "ds-token/token.sol";
 import "ds-auth/auth.sol";
 import "ds-math/math.sol";
 import "ds-note/note.sol";
+import "ds-exec/exec.sol";
+import "ds-stop/stop.sol";
 
-contract StandardSale is DSAuth, DSMath, DSNote {
+contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
     DSToken token;
 
@@ -17,8 +19,8 @@ contract StandardSale is DSAuth, DSMath, DSNote {
 
     uint timeLimit;
     uint softCapTimeLimit;
-    uint start;
-    uint end;
+    uint startTime;
+    uint endTime;
 
     address multisig;
 
@@ -33,7 +35,7 @@ contract StandardSale is DSAuth, DSMath, DSNote {
         uint softCap_, 
         uint timeLimit_, 
         uint softCapTimeLimit_,
-        uint start_,
+        uint startTime_,
         address multisig_) {
         
         token = new DSToken(symbol);
@@ -44,15 +46,15 @@ contract StandardSale is DSAuth, DSMath, DSNote {
         softCap = softCap_;
         timeLimit = timeLimit_;
         softCapTimeLimit = softCapTimeLimit_;
-        start = start_;
-        end = start + timeLimit;
+        startTime = startTime_;
+        endTime = startTime + timeLimit;
 
         multisig = multisig_;
 
         per = wdiv(total, cap);
 
         token.mint(total);
-        token.push(sub(total, forSale), multisig);
+        token.push(multisig, sub(total, forSale));
         token.stop();
     }
 
@@ -61,10 +63,10 @@ contract StandardSale is DSAuth, DSMath, DSNote {
     }
 
     // can't set start after sale has started
-    function setStart(uint start_) auth {
-        require(time() < start);
-        start = start_;
-        end = start + timeLimit;
+    function setStartTime(uint startTime_) auth {
+        require(time() < startTime);
+        startTime = startTime_;
+        endTime = startTime + timeLimit;
     }
 
     function buy(uint price) {
@@ -77,7 +79,6 @@ contract StandardSale is DSAuth, DSMath, DSNote {
 
     function() payable stoppable note {
 
-        require(time() > start && time() < end);
-        buy();
+        require(time() > startTime && time() < endTime);
     }
 }
