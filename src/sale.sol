@@ -25,7 +25,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     address public multisig;
 
     uint public per; // Token per ETH
-    uint public sold;
+    uint public collected;
 
     function StandardSale(
         bytes32 symbol, 
@@ -51,7 +51,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
         multisig = multisig_;
 
-        per = wdiv(total, cap);
+        per = wdiv(forSale, cap);
 
         token.mint(total);
         token.push(multisig, sub(total, forSale));
@@ -71,28 +71,28 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
     function buy(uint price) internal {
         uint requested = wmul(msg.value, price);
-        uint collected = msg.value;
+        uint keep = msg.value;
 
         if (requested > token.balanceOf(this)) {
             requested = token.balanceOf(this);
-            collected = wdiv(requested, price);
+            keep = wdiv(requested, price);
             endTime = time();
         }
 
-        if (sold < softCap && add(sold, requested) > softCap) {
+        if (collected < softCap && add(collected, keep) >= softCap) {
             endTime = time() + softCapTimeLimit;
         }
 
-        sold = add(sold, requested);
+        collected = add(collected, keep);
 
         token.start();
         token.push(msg.sender, requested);
         token.stop();
 
-        exec(multisig, collected); // send collected ETH to multisig
+        exec(multisig, keep); // send collected ETH to multisig
 
         // return excess ETH to the user
-        uint refund = sub(msg.value, collected);
+        uint refund = sub(msg.value, keep);
         if(refund > 0) {
             exec(msg.sender, refund);
         }
@@ -100,7 +100,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
     function() public payable stoppable note {
 
-        require(time() > startTime && time() < endTime);
+        require(time() >= startTime && time() < endTime);
         buy(per);
     }
 

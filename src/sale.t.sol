@@ -97,7 +97,7 @@ contract StandardSaleTest is DSTest, DSExec {
             900 ether,
             5 days,
             1 days,
-            now + 1,
+            now,
             owner);
         token = sale.token();
 
@@ -121,14 +121,12 @@ contract StandardSaleTest is DSTest, DSExec {
 
 
     function testPublicBuy() public {
-        sale.addTime(1 days);
-
         user1.doBuy(19 ether);
-        assertEq(token.balanceOf(user1), 200000 * 19 ether);
+        assertEq(token.balanceOf(user1), 152 ether);
         assertEq(owner.balance, 19 ether);
 
         exec(sale, 11 ether);
-        assertEq(token.balanceOf(this), 200000 * 11 ether);
+        assertEq(token.balanceOf(this), 88 ether);
         assertEq(owner.balance, 30 ether);
     }
 
@@ -144,55 +142,68 @@ contract StandardSaleTest is DSTest, DSExec {
 
     function testBuyManyTimes() public {
         exec(sale, 100 ether);
-        assertEq(token.balanceOf(this), 200000 * 100 ether);
+        assertEq(token.balanceOf(this), 800 ether);
 
         exec(sale, 200 ether);
-        assertEq(token.balanceOf(this), 200000 * 300 ether);
+        assertEq(token.balanceOf(this), 2400 ether);
 
         exec(sale, 200 ether);
-        assertEq(token.balanceOf(this), 200000 * 500 ether);
+        assertEq(token.balanceOf(this), 4000 ether);
     }
 
 
     function testPostponeStartTime() public {
+        sale = new TestableStandardSale(
+            "TKN",
+            10000 ether,
+            8000 ether,
+            1000 ether,
+            900 ether,
+            5 days,
+            1 days,
+            now + 1,
+            owner);
 
-        assertEq(sale.startTime(), now );
-        assertEq(sale.endTime(), now + 14 days);
+        assertEq(sale.startTime(), now + 1 );
+        assertEq(sale.endTime(), now + 1 + 5 days);
 
         sale.setStartTime(now + 2 days);
 
         assertEq(sale.startTime(), now + 2 days);
-        assertEq(sale.endTime(), now + 16 days);
+        assertEq(sale.endTime(), now + 7 days);
     }
 
     function testHitSoftCap() public {
-        exec(sale, 20000 ether);
+        exec(sale, 800 ether);
+
+        assertEq(sale.endTime(), now + 5 days);
+
+        exec(sale, 100 ether);
 
         assertEq(sale.endTime(), now + 24 hours);
     }
 
     function testFinalize() public {
 
-        // sell 30000 ether, remains 10000 ether
-        exec(sale, 30000 ether);
+        exec(sale, 900 ether);
 
-        sale.addTime(14 days);
+        sale.addTime(6 days);
 
-        assertEq(token.balanceOf(sale), 10000 * 200000 * 1 ether);
-        assertEq(token.balanceOf(owner), ( (10 ** 11) * 84 / 100 ) * 1 ether + 40000 * 200000 ether);
+        assertEq(token.balanceOf(sale), 800 ether);
+        assertEq(token.balanceOf(owner), 2000 ether);
 
         sale.finalize();
 
         assertEq(token.balanceOf(sale), 0 );
-        assertEq(token.balanceOf(owner), ( (10 ** 11) * 84 / 100 + 10000 * 200000) * 1 ether + 40000 * 200000 ether);
+        assertEq(token.balanceOf(owner), 2800 ether);
 
-        assertEq(owner.balance, 30000 ether);
+        assertEq(owner.balance, 900 ether);
 
     }
 
     function testTokenOwnershipAfterFinalize() public {
 
-        sale.addTime(14 days);
+        sale.addTime(6 days);
 
         sale.finalize();
         owner.doStop();
@@ -200,26 +211,26 @@ contract StandardSaleTest is DSTest, DSExec {
 
     function testTransferAfterFinalize() public {
         user1.doBuy(1 ether);
-        assertEq(token.balanceOf(user1), 200000 * 1 ether);
+        assertEq(token.balanceOf(user1), 8 ether);
 
-        sale.addTime(14 days);
+        sale.addTime(6 days);
         sale.finalize();
 
-        assert(user1.doTransfer(user2, 200000 * 1 ether));
+        assert(user1.doTransfer(user2, 8 ether));
 
         assertEq(token.balanceOf(user1), 0);
-        assertEq(token.balanceOf(user2), 200000 * 1 ether);
+        assertEq(token.balanceOf(user2), 8 ether);
 
     }
 
     function testBuyExceedHardLimit() public {
 
-        exec(sale, 39900 ether);
+        exec(sale, 900 ether);
 
         // one 100 ether left, 200 ether will return
         user1.doBuy(300 ether);
 
-        assertEq(token.balanceOf(user1), 200000 * 100 ether);
+        assertEq(token.balanceOf(user1), 800 ether);
         assertEq(user1.balance, 500 ether);
 
         assertEq(sale.endTime(), now);
@@ -227,25 +238,12 @@ contract StandardSaleTest is DSTest, DSExec {
 
     function testFailTransferBeforeFinalize() public {
         user1.doBuy(1 ether);
-        assert(user1.doTransfer(user2, 200000 * 1 ether));
-    }
-
-    function testEndTimeAfterSoftLimit() public {
-
-        // normal sell is 14 days
-        assertEq(sale.endTime(), now + 14 days);
-
-        // hit soft limit
-        exec(sale, 20000 ether);
-        assertEq(token.balanceOf(this), 200000 * 20000 ether);
-
-        // 24 hours left for sell
-        assertEq(sale.endTime(), now + 24 hours);
+        user1.doTransfer(user2, 8 ether);
     }
 
     function testFailSoftLimit() public {
 
-        exec(sale, 60000 ether);
+        exec(sale, 900 ether);
 
         sale.addTime(24 hours);
 
@@ -256,15 +254,10 @@ contract StandardSaleTest is DSTest, DSExec {
     function testFailHardLimit() public {
 
         // hit hard limit
-        exec(sale, 40000 ether);
+        exec(sale, 1000 ether);
 
         // sell is finished
         exec(sale, 1 ether);
-    }
-
-    // tries to buy more than 500 eth
-    function testFailUserBuyTooMuch() public {
-        user1.doBuy(501 ether);
     }
 
 
@@ -283,7 +276,7 @@ contract StandardSaleTest is DSTest, DSExec {
     }
 
     function testFailBuyAfterClose() public {
-        sale.addTime(14 days);
+        sale.addTime(6 days);
         exec(sale, 10 ether);
     }
 }
