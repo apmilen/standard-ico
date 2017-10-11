@@ -9,23 +9,23 @@ import "ds-stop/stop.sol";
 
 contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
-    DSToken token;
+    DSToken public token;
 
-    uint total;
-    uint forSale;
+    uint public total;
+    uint public forSale;
 
-    uint cap;
-    uint softCap;
+    uint public cap;
+    uint public softCap;
 
-    uint timeLimit;
-    uint softCapTimeLimit;
-    uint startTime;
-    uint endTime;
+    uint public timeLimit;
+    uint public softCapTimeLimit;
+    uint public startTime;
+    uint public endTime;
 
-    address multisig;
+    address public multisig;
 
-    uint per; // Token per ETH
-    uint sold;
+    uint public per; // Token per ETH
+    uint public sold;
 
     function StandardSale(
         bytes32 symbol, 
@@ -36,7 +36,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         uint timeLimit_, 
         uint softCapTimeLimit_,
         uint startTime_,
-        address multisig_) {
+        address multisig_) public {
         
         token = new DSToken(symbol);
 
@@ -58,18 +58,18 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         token.stop();
     }
 
-    function time() returns (uint) {
+    function time() internal returns (uint) {
         return block.timestamp;
     }
 
     // can't set startTime after sale has started
-    function setStartTime(uint startTime_) auth {
+    function setStartTime(uint startTime_) public auth {
         require(time() < startTime);
         startTime = startTime_;
         endTime = startTime + timeLimit;
     }
 
-    function buy(uint price) {
+    function buy(uint price) internal {
         uint requested = wmul(msg.value, price);
         uint collected = msg.value;
 
@@ -98,13 +98,13 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         }
     }
 
-    function() payable stoppable note {
+    function() public payable stoppable note {
 
         require(time() > startTime && time() < endTime);
         buy(per);
     }
 
-    function finalize() auth {
+    function finalize() public auth {
         require(time() >= endTime);
 
         // enable transfer
@@ -118,7 +118,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     }
 
     // because sometimes people get a little too excited and send the wrong token
-    function transferTokens(address dst, uint wad, address tkn_) auth {
+    function transferTokens(address dst, uint wad, address tkn_) public auth {
         ERC20 tkn = ERC20(tkn_);
         tkn.transfer(dst, wad);
     }
@@ -138,11 +138,14 @@ contract WhitelistSale is StandardSale {
     uint head;
     uint size;
 
-    function setWhitelist(address who, bool what) auth {
+    function setWhitelist(address who, bool what) public auth {
         whitelist[who] = what;
     }
 
-    function addTranch(uint line_, uint bonus_) {
+    // TODO
+    //function preDistribute(){}
+
+    function addTranch(uint line_, uint bonus_) public auth {
 
         uint id = head;
         uint prevId = 0;
@@ -163,7 +166,7 @@ contract WhitelistSale is StandardSale {
         size++;
     }
 
-    function removeTranch(uint axe) {
+    function removeTranch(uint axe) public auth {
         uint id = head;
 
         while (tranches[id].next != axe) {
@@ -174,11 +177,11 @@ contract WhitelistSale is StandardSale {
         delete tranches[axe];
     }
 
-    function() payable stoppable note {
+    function() public payable stoppable note {
 
         require(time() < endTime);
 
-        if (time() < startTime) {
+        if (time() < startTime && whitelist[msg.sender]) {
             bool found = false;
             uint id = head;
             while (!found) {
