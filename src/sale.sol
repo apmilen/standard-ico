@@ -62,7 +62,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         return block.timestamp;
     }
 
-    // can't set start after sale has started
+    // can't set startTime after sale has started
     function setStartTime(uint startTime_) auth {
         require(time() < startTime);
         startTime = startTime_;
@@ -121,5 +121,76 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     function transferTokens(address dst, uint wad, address tkn_) auth {
         ERC20 tkn = ERC20(tkn_);
         tkn.transfer(dst, wad);
+    }
+}
+
+
+contract WhitelistSale is StandardSale {
+
+    mapping (address => bool) public whitelist;
+
+    struct bonusInfo {
+        uint next;
+        uint line;
+        uint bonus;
+    }
+    mapping(uint => bonusInfo) public tranches;
+    uint head;
+    uint size;
+
+    function setWhitelist(address who, bool what) auth {
+        whitelist[who] = what;
+    }
+
+    function addTranch(uint line_, uint bonus_) {
+
+        uint id = head;
+        uint prevId = 0;
+        uint count = 0;
+        while(tranches[id].line < line_ && count < size) {
+            prevId = id;
+            id = tranches[id].next;
+            count++;
+        }
+
+        tranches[size] = bonusInfo(id, line_, bonus_);
+        tranches[prevId].next = size;
+
+        if (count == 0) {
+            head = size;
+        }
+
+        size++;
+    }
+
+    function removeTranch(uint axe) {
+        uint id = head;
+
+        while (tranches[id].next != axe) {
+            id = tranches[id].next;
+        }
+
+        tranches[id].next = tranches[axe].next;
+        delete tranches[axe];
+    }
+
+    function() payable stoppable note {
+
+        require(time() < endTime);
+
+        if (time() < startTime) {
+            bool found = false;
+            uint id = head;
+            while (!found) {
+                found = tranches[id].line >= msg.value;
+                if (!found) {
+                    id = tranches[id].next;
+                }
+            }
+            buy(tranches[id].bonus);
+        } else {
+            buy(per);
+        }
+
     }
 }
