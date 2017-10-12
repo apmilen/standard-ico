@@ -31,13 +31,13 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         bytes32 symbol, 
         uint total_, 
         uint forSale_, 
-        uint cap_, 
+        uint cap_,
         uint softCap_, 
         uint timeLimit_, 
         uint softCapTimeLimit_,
         uint startTime_,
         address multisig_) public {
-        
+
         token = new DSToken(symbol);
 
         total = total_;
@@ -69,39 +69,42 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         endTime = startTime + timeLimit;
     }
 
-    function buy(uint price) internal {
-        uint requested = wmul(msg.value, price);
-        uint keep = msg.value;
+    function buy(uint price, address who, uint val, bool send) internal {
+        uint requested = wmul(val, price);
+        uint keep = val;
 
         if (requested > token.balanceOf(this)) {
             requested = token.balanceOf(this);
             keep = wdiv(requested, price);
-            endTime = time();
         }
 
-        if (collected < softCap && add(collected, keep) >= softCap) {
+        token.start();
+        token.push(who, requested);
+        token.stop();
+
+        if (token.balanceOf(this) == 0) {
+            endTime = time();
+        } else if (collected < softCap && add(collected, keep) >= softCap) {
             endTime = time() + softCapTimeLimit;
         }
 
         collected = add(collected, keep);
 
-        token.start();
-        token.push(msg.sender, requested);
-        token.stop();
-
-        exec(multisig, keep); // send collected ETH to multisig
+        if (send) {
+            exec(multisig, keep); // send collected ETH to multisig
+        }
 
         // return excess ETH to the user
-        uint refund = sub(msg.value, keep);
-        if(refund > 0) {
-            exec(msg.sender, refund);
+        uint refund = sub(val, keep);
+        if(refund > 0 && send) {
+            exec(who, refund);
         }
     }
 
     function() public payable stoppable note {
 
         require(time() >= startTime && time() < endTime);
-        buy(per);
+        buy(per, msg.sender, msg.value, true);
     }
 
     function finalize() public auth {
@@ -127,72 +130,117 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
 contract WhitelistSale is StandardSale {
 
-    mapping (address => bool) public whitelist;
+    mapping (address => bool) public whitelist; // presale
+    //mapping (address => bonusInfo) public deals;
 
     struct bonusInfo {
         uint next;
-        uint line;
-        uint bonus;
+        uint floor;
+        uint bonus; // price
     }
     mapping(uint => bonusInfo) public tranches;
     uint head;
+    uint tail;
     uint size;
+
+    uint presaleStartTime;
+    uint preSaleCap;
+    uint preCollected;
+
+    function WhitelistSale(
+        bytes32 symbol, 
+        uint total_, 
+        uint forSale_, 
+        uint cap_, 
+        uint softCap_, 
+        uint timeLimit_, 
+        uint softCapTimeLimit_,
+        uint startTime_,
+        address multisig_,
+        uint presaleStartTime_,
+        uint initPresalePrice,
+        uint preSaleCap_) 
+    StandardSale(
+        symbol, 
+        total_, 
+        forSale_, 
+        cap_, 
+        softCap_, 
+        timeLimit_, 
+        softCapTimeLimit_,
+        startTime_,
+        multisig_) public {
+        
+        tranches[size] = bonusInfo(0, 0, initPresalePrice);
+        size++;
+
+        require(presaleStartTime_ < startTime_);
+        presaleStartTime = presaleStartTime_;
+
+        require(preSaleCap_ < softCap_);
+        preSaleCap = preSaleCap_;
+    }
 
     function setWhitelist(address who, bool what) public auth {
         whitelist[who] = what;
     }
 
-    // TODO
-    //function preDistribute(){}
+    // because some times operators pre-pre-sell their token
+    function preDistribute(address who, uint val) public auth {
+        require(time() < presaleStartTime);
+        preBuy(who, val, false);
+    }
 
-    function addTranch(uint line_, uint bonus_) public auth {
+    function addTranch(uint floor_, uint bonus_) public auth {
 
-        uint id = head;
-        uint prevId = 0;
-        uint count = 0;
-        while(tranches[id].line < line_ && count < size) {
-            prevId = id;
-            id = tranches[id].next;
-            count++;
-        }
-
-        tranches[size] = bonusInfo(id, line_, bonus_);
-        tranches[prevId].next = size;
-
-        if (count == 0) {
-            head = size;
-        }
-
+        require(tranches[tail].floor < floor_);
+        tranches[tail].next = size;
+        tranches[size] = bonusInfo(0, floor_, bonus_);
         size++;
     }
 
-    function removeTranch(uint axe) public auth {
+    function preBuy(address who, uint val, bool send) internal {
+        
+        require(whitelist[msg.sender]);
+        require(preCollected < preSaleCap);
+        
+        bool found = false;
         uint id = head;
-
-        while (tranches[id].next != axe) {
-            id = tranches[id].next;
+        uint count = 0;
+        while (!found && count < size) {
+            found = tranches[id].floor >= val; // TODO
+            if (!found) {
+                id = tranches[id].next;
+            }
+            count++;
         }
 
-        tranches[id].next = tranches[axe].next;
-        delete tranches[axe];
+        uint price = tranches[id].bonus;
+
+        uint keep = val;
+        if (add(val, preCollected) > preSaleCap) {
+            keep = sub(preSaleCap, preCollected);
+        }
+
+        preCollected = add(preCollected, keep);
+
+        buy(price, who, keep, send);
+
+        // return excess ETH to the user
+        uint refund = sub(val, keep);
+        if(refund > 0 && send) {
+            exec(who, refund);
+        }
     }
 
     function() public payable stoppable note {
 
-        require(time() < endTime);
+        require(time() >= presaleStartTime && time() < endTime);
 
-        if (time() < startTime && whitelist[msg.sender]) {
-            bool found = false;
-            uint id = head;
-            while (!found) {
-                found = tranches[id].line >= msg.value;
-                if (!found) {
-                    id = tranches[id].next;
-                }
-            }
-            buy(tranches[id].bonus);
+        if (time() < startTime) {
+            preBuy(msg.sender, msg.value, true);
         } else {
-            buy(per);
+            buy(per, msg.sender, msg.value, true);
         }
 
     }
