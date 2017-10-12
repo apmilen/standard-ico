@@ -85,7 +85,9 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         if (token.balanceOf(this) == 0) {
             endTime = time();
         } else if (collected < softCap && add(collected, keep) >= softCap) {
-            endTime = time() + softCapTimeLimit;
+            // because you can hit softCap before sale starts
+            var x = time() >= startTime ? time() : startTime;
+            endTime =  x + softCapTimeLimit;
         }
 
         collected = add(collected, keep);
@@ -177,7 +179,6 @@ contract WhitelistSale is StandardSale {
         require(presaleStartTime_ < startTime_);
         presaleStartTime = presaleStartTime_;
 
-        require(preSaleCap_ < softCap_);
         preSaleCap = preSaleCap_;
     }
 
