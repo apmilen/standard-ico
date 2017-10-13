@@ -130,17 +130,16 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 }
 
 
-contract WhitelistSale is StandardSale {
+contract TwoStageSale is StandardSale {
 
-    mapping (address => bool) public whitelist; // presale
-    //mapping (address => bonusInfo) public deals;
+    mapping (address => bool) public presale;
 
-    struct bonusInfo {
+    struct priceInfo {
         uint next;
         uint floor;
-        uint bonus; // price
+        uint price;
     }
-    mapping(uint => bonusInfo) public tranches;
+    mapping(uint => priceInfo) public tranches;
     uint head;
     uint tail;
     uint size;
@@ -149,7 +148,7 @@ contract WhitelistSale is StandardSale {
     uint preSaleCap;
     uint preCollected;
 
-    function WhitelistSale(
+    function TwoStageSale(
         bytes32 symbol, 
         uint total_, 
         uint forSale_, 
@@ -173,7 +172,7 @@ contract WhitelistSale is StandardSale {
         startTime_,
         multisig_) public {
         
-        tranches[size] = bonusInfo(0, 0, initPresalePrice);
+        tranches[size] = priceInfo(0, 0, initPresalePrice);
         size++;
 
         require(presaleStartTime_ < startTime_);
@@ -182,8 +181,8 @@ contract WhitelistSale is StandardSale {
         preSaleCap = preSaleCap_;
     }
 
-    function setWhitelist(address who, bool what) public auth {
-        whitelist[who] = what;
+    function setPresale(address who, bool what) public auth {
+        presale[who] = what;
     }
 
     // because some times operators pre-pre-sell their token
@@ -192,17 +191,17 @@ contract WhitelistSale is StandardSale {
         preBuy(who, val, false);
     }
 
-    function addTranch(uint floor_, uint bonus_) public auth {
+    function addTranch(uint floor_, uint price_) public auth {
 
         require(tranches[tail].floor < floor_);
         tranches[tail].next = size;
-        tranches[size] = bonusInfo(0, floor_, bonus_);
+        tranches[size] = priceInfo(0, floor_, price_);
         size++;
     }
 
     function preBuy(address who, uint val, bool send) internal {
         
-        require(whitelist[msg.sender]);
+        require(presale[msg.sender]);
         require(preCollected < preSaleCap);
         
         bool found = false;
@@ -216,7 +215,7 @@ contract WhitelistSale is StandardSale {
             count++;
         }
 
-        uint price = tranches[id].bonus;
+        uint price = tranches[id].price;
 
         uint keep = val;
         if (add(val, preCollected) > preSaleCap) {
