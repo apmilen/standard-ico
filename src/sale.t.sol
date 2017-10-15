@@ -6,12 +6,12 @@ import "ds-token/token.sol";
 
 import "./sale.sol";
 
-contract StandardSaleUser is DSExec {
+contract SaleUser is DSExec {
 
     StandardSale sale;
     DSToken token;
 
-    function StandardSaleUser(StandardSale sale_) public {
+    function SaleUser(StandardSale sale_) public {
         sale = sale_;
         token = sale.token();
     }
@@ -83,8 +83,8 @@ contract StandardSaleTest is DSTest, DSExec {
     DSToken token;
     TokenOwner owner;
 
-    StandardSaleUser user1;
-    StandardSaleUser user2;
+    SaleUser user1;
+    SaleUser user2;
 
 
     function setUp() {
@@ -103,10 +103,10 @@ contract StandardSaleTest is DSTest, DSExec {
 
         owner.setToken(token);
 
-        user1 = new StandardSaleUser(sale);
+        user1 = new SaleUser(sale);
         exec(user1, 600 ether);
 
-        user2 = new StandardSaleUser(sale);
+        user2 = new SaleUser(sale);
         exec(user2, 600 ether);
 
     }
@@ -278,5 +278,245 @@ contract StandardSaleTest is DSTest, DSExec {
     function testFailBuyAfterClose() public {
         sale.addTime(6 days);
         exec(sale, 10 ether);
+    }
+}
+
+contract TestableTwoStageSale is TwoStageSale {
+    
+    function TestableTwoStageSale(
+        bytes32 symbol, 
+        uint total_, 
+        uint forSale_, 
+        uint cap_, 
+        uint softCap_, 
+        uint timeLimit_, 
+        uint softCapTimeLimit_,
+        uint startTime_,
+        address multisig_,
+        uint presaleStartTime_,
+        uint initPresalePrice,
+        uint preSaleCap_)
+    TwoStageSale(
+        symbol, 
+        total_, 
+        forSale_, 
+        cap_, 
+        softCap_, 
+        timeLimit_, 
+        softCapTimeLimit_,
+        startTime_,
+        multisig_,
+        presaleStartTime_,
+        initPresalePrice,
+        preSaleCap_) public {
+        localTime = now;
+    }
+
+    uint public localTime;
+
+    function time() internal returns (uint) {
+        return localTime;
+    }
+
+    function addTime(uint extra) public {
+        localTime += extra;
+    }
+}
+
+contract TwoStageSaleTest is DSTest, DSExec {
+    TestableTwoStageSale sale;
+    DSToken token;
+    TokenOwner owner;
+
+    SaleUser user1;
+    SaleUser user2;
+
+
+    function setUp() {
+        owner = new TokenOwner();
+        sale = new TestableTwoStageSale(
+            "TKN",
+            10000 ether,
+            8000 ether,
+            1000 ether,
+            900 ether,
+            5 days,
+            1 days,
+            now + 1 days,
+            owner,
+            now + 1,
+            8.08 ether,
+            500 ether);
+
+        token = sale.token();
+
+        owner.setToken(token);
+
+        user1 = new SaleUser(sale);
+        exec(user1, 10000 ether);
+
+        user2 = new SaleUser(sale);
+        exec(user2, 10000 ether);
+
+    }
+
+    function testSetPresale() public {
+        assertTrue(!sale.presale(user1));
+        sale.setPresale(user1, true);
+        assertTrue(sale.presale(user1));
+    }
+
+    function testAddTranch() public {
+        assertEq(sale.size(), 1);
+        var (next, floor, price) = sale.tranches(0);
+        assertEq(price, 8.08 ether);
+        sale.addTranch(2 ether, 8.16 ether);
+        assertEq(sale.size(), 2);
+        (next, floor, price) = sale.tranches(0);
+        assertEq(price, 8.08 ether);
+        assertEq(next, 1);
+        (next, floor, price) = sale.tranches(1);
+        assertEq(floor, 2 ether);
+        assertEq(price, 8.16 ether);
+    }
+
+    function testFailAddTranch() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(1 ether, 8.32 ether);
+    }
+
+    function testPreDistribute() public {
+        assertEq(sale.preCollected(), 0);
+        sale.preDistribute(user1, 100 ether);
+        assertEq(sale.preCollected(), 100 ether);
+        assertEq(token.balanceOf(user1), 808 ether);
+    }
+
+    function testFailPreDistribute() public {
+        sale.addTime(1);
+        sale.preDistribute(user1, 100 ether);
+    }
+
+    function testHitSoftCapPreDistribute() public {
+        sale = new TestableTwoStageSale(
+            "TKN",
+            10000 ether,
+            8000 ether,
+            1000 ether,
+            900 ether,
+            5 days,
+            1 days,
+            now + 1 days,
+            owner,
+            now + 1,
+            8.08 ether,
+            900 ether);
+
+        assertEq(sale.startTime(), now + 1 days);
+        assertEq(sale.endTime(), now + 6 days);
+        sale.preDistribute(user1, 900 ether);
+        assertEq(sale.endTime(), now + 2 days);
+    }
+
+    function testHitPresaleCapPreDistribute() public {
+        sale.preDistribute(user1, 500 ether);
+        assertEq(sale.preCollected(), 500 ether);
+        assertEq(sale.collected(), 500 ether);
+    }
+
+    function testFailHitPresaleCapPreDistribute() public {
+        sale.preDistribute(user1, 501 ether);
+        assertEq(sale.preCollected(), 500 ether);
+        assertEq(sale.collected(), 500 ether);
+    }
+
+    function testHighestTranch() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(4 ether, 8.32 ether);
+        sale.setPresale(this, true);
+        sale.addTime(1);
+        exec(sale, 4 ether);
+        assertEq(token.balanceOf(this), 33.28 ether);
+    }
+
+    function testHighestTranchNotExact() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(4 ether, 8.32 ether);
+        sale.setPresale(this, true);
+        sale.addTime(1);
+        exec(sale, 4.01 ether);
+        assertEq(token.balanceOf(this), 33.3632 ether);
+    }
+
+    function testMiddleTranch() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(4 ether, 8.32 ether);
+        sale.setPresale(this, true);
+        sale.addTime(1);
+        exec(sale, 2 ether);
+        assertEq(token.balanceOf(this), 16.32 ether);
+    }
+
+    function testMiddleTranchNotExact() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(4 ether, 8.32 ether);
+        sale.setPresale(this, true);
+        sale.addTime(1);
+        exec(sale, 2.01 ether);
+        assertEq(token.balanceOf(this), 16.4016 ether);
+    }
+
+    function testLowestTranch() public {
+        sale.addTranch(2 ether, 8.16 ether);
+        sale.addTranch(4 ether, 8.32 ether);
+        sale.setPresale(this, true);
+        sale.addTime(1);
+        exec(sale, 1 ether);
+        assertEq(token.balanceOf(this), 8.08 ether);
+    }
+
+    function testHitSoftCapPresale() public {
+        sale = new TestableTwoStageSale(
+            "TKN",
+            10000 ether,
+            8000 ether,
+            1000 ether,
+            900 ether,
+            5 days,
+            1 days,
+            now + 1 days,
+            owner,
+            now + 1,
+            8.08 ether,
+            900 ether);
+
+        sale.addTime(1);
+        sale.setPresale(this, true);
+        exec(sale, 900 ether);
+        assertEq(sale.endTime(), now + 2 days);
+    }
+
+    function testHitPresaleCapPresale() public {
+        sale.addTime(1);
+        sale.setPresale(user1, true);
+        user1.doBuy(500 ether);
+        assertEq(sale.collected(), 500 ether);
+        assertEq(sale.preCollected(), 500 ether);
+        assertEq(token.balanceOf(user1), 4040 ether);
+
+        user1.doBuy(500 ether);
+        assertEq(sale.collected(), 500 ether);
+        assertEq(sale.preCollected(), 500 ether);
+        assertEq(token.balanceOf(user1), 4040 ether);
+    }
+
+    function testPresaleRefund() public {
+        sale.addTime(1);
+        sale.setPresale(user1, true);
+        user1.doBuy(1000 ether);
+        assertEq(sale.collected(), 500 ether);
+        assertEq(sale.preCollected(), 500 ether);
+        assertEq(token.balanceOf(user1), 4040 ether);
+        assertEq(user1.balance, 9500 ether);
     }
 }

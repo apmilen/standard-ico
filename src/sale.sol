@@ -140,13 +140,11 @@ contract TwoStageSale is StandardSale {
         uint price;
     }
     mapping(uint => priceInfo) public tranches;
-    uint head;
-    uint tail;
-    uint size;
+    uint public size;
 
-    uint presaleStartTime;
-    uint preSaleCap;
-    uint preCollected;
+    uint public presaleStartTime;
+    uint public preSaleCap;
+    uint public preCollected;
 
     function TwoStageSale(
         bytes32 symbol, 
@@ -185,52 +183,54 @@ contract TwoStageSale is StandardSale {
         presale[who] = what;
     }
 
+    // can't set startTime after presale has started
+    function setStartTime(uint startTime_) public auth {
+        require(time() < presaleStartTime);
+        startTime = startTime_;
+        endTime = startTime + timeLimit;
+    }
+
     // because some times operators pre-pre-sell their token
     function preDistribute(address who, uint val) public auth {
         require(time() < presaleStartTime);
+        require(add(preCollected, val) <= preSaleCap);
         preBuy(who, val, false);
     }
 
     function addTranch(uint floor_, uint price_) public auth {
 
-        require(tranches[tail].floor < floor_);
-        tranches[tail].next = size;
+        require(tranches[size - 1].floor < floor_);
+        tranches[size - 1].next = size;
         tranches[size] = priceInfo(0, floor_, price_);
         size++;
     }
 
     function preBuy(address who, uint val, bool send) internal {
         
-        require(presale[msg.sender]);
-        require(preCollected < preSaleCap);
-        
         bool found = false;
-        uint id = head;
+        uint id = 0;
         uint count = 0;
-        while (!found && count < size) {
-            found = tranches[id].floor >= val; // TODO
-            if (!found) {
+        uint prev = 0;
+        while (!found) {
+            count++;
+
+            if (tranches[id].floor > val) {
+                found = true;
+                id = prev;
+            } else if (tranches[id].floor == val || count == size) {
+                found = true;
+            } else {
+                prev = id;
                 id = tranches[id].next;
             }
-            count++;
+
         }
 
         uint price = tranches[id].price;
 
-        uint keep = val;
-        if (add(val, preCollected) > preSaleCap) {
-            keep = sub(preSaleCap, preCollected);
-        }
+        preCollected = add(preCollected, val);
 
-        preCollected = add(preCollected, keep);
-
-        buy(price, who, keep, send);
-
-        // return excess ETH to the user
-        uint refund = sub(val, keep);
-        if(refund > 0 && send) {
-            exec(who, refund);
-        }
+        buy(price, who, val, send);
     }
 
     function() public payable stoppable note {
@@ -238,7 +238,20 @@ contract TwoStageSale is StandardSale {
         require(time() >= presaleStartTime && time() < endTime);
 
         if (time() < startTime) {
-            preBuy(msg.sender, msg.value, true);
+            require(presale[msg.sender]);
+
+            uint keep = msg.value;
+            if (add(keep, preCollected) > preSaleCap) {
+                keep = sub(preSaleCap, preCollected);
+            }
+
+            preBuy(msg.sender, keep, true);
+
+            // return excess ETH to the user
+            uint refund = sub(msg.value, keep);
+            if(refund > 0) {
+                exec(msg.sender, refund);
+            }
         } else {
             buy(per, msg.sender, msg.value, true);
         }
