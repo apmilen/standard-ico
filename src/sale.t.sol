@@ -152,7 +152,7 @@ contract StandardSaleTest is DSTest, DSExec {
     }
 
 
-    function testPostponeStartTime() public {
+    function testPostpone() public {
         sale = new TestableStandardSale(
             "TKN",
             10000 ether,
@@ -167,7 +167,7 @@ contract StandardSaleTest is DSTest, DSExec {
         assertEq(sale.startTime(), now + 1 );
         assertEq(sale.endTime(), now + 1 + 5 days);
 
-        sale.setStartTime(now + 2 days);
+        sale.postpone(now + 2 days);
 
         assertEq(sale.startTime(), now + 2 days);
         assertEq(sale.endTime(), now + 7 days);
@@ -519,4 +519,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertEq(token.balanceOf(user1), 4040 ether);
         assertEq(user1.balance, 9500 ether);
     }
+
+    // function testRegularBuy
+
+
 }

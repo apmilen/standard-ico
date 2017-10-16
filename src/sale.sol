@@ -62,8 +62,8 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
         return block.timestamp;
     }
 
-    // can't set startTime after sale has started
-    function setStartTime(uint startTime_) public auth {
+    // can't postpone after sale has started
+    function postpone(uint startTime_) public auth {
         require(time() < startTime);
         startTime = startTime_;
         endTime = startTime + timeLimit;
@@ -184,8 +184,9 @@ contract TwoStageSale is StandardSale {
     }
 
     // can't set startTime after presale has started
-    function setStartTime(uint startTime_) public auth {
+    function postpone(uint startTime_) public auth {
         require(time() < presaleStartTime);
+        require(startTime < startTime_); // can only postpone. for simplicity
         startTime = startTime_;
         endTime = startTime + timeLimit;
     }
