@@ -39,13 +39,15 @@ This is the number of tokens that will be sold. This parameter expects a Wad typ
 
 * **uint cap**
 
-This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `per` state variable, which is the number of tokens sold per ETH. This means that `per` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time.
+This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `per` state variable, which is the number of tokens sold per ETH. This means that `per` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time. This parameter expects a Wad type.
 
 * **uint softCap**
 
 This is the total amount of ETH that needs to be accepted before changing the end time of the sale. When `softCap` ETH has been collected, the end time of the sale will change to `softCapTimeLimit` seconds into the future. For example:
 
-Suppose `softCapTimeLimit` is `1 day` and the sale time limit is `5 days`. If the sale starts on October 1st, then it will end on October 6th. If on October 2nd the sale collects `softCap` ETH, then the new end time will be October 3rd.
+Suppose `softCapTimeLimit` is `1 day` and the sale time limit is `5 days`. If the sale starts on October 1st, then it will end on October 6th. If on October 2nd the sale collects `softCap` ETH, then the new end time will be October 3rd. 
+
+This parameter expects a Wad type.
  
 * **uint timeLimit**
 
@@ -100,3 +102,51 @@ This function should be called when the sale has completed. It will transfer own
 This function can transfer any tokens that the contract has erroneously received. Sometimes users mishandle their wallets and send an ERC20 token to the contract by mistake. This function allows the sale adminstrators to help out and return the tokens.
 
 `function transferTokens(address dst, uint wad, address tkn_) public auth`
+
+## TwoStageSale
+
+### Set up
+
+The `TwoStageSale` contract is initialized with 12 parameters, in this order:
+
+* **bytes32 symbol**
+
+See above.
+
+* **uint total**
+
+See above.
+
+* **uint forSale**
+
+See above.
+
+* **uint cap**
+
+See above.
+
+* **uint softCap**
+
+See above.
+ 
+* **uint timeLimit**
+
+See above.
+
+* **uint softCapTimeLimit**
+
+See above.
+
+* **uint startTime**
+
+See above.
+
+* **address multisig**
+
+See above.
+
+* **uint presaleStartTime**
+
+* **uint initPresalePrice**
+
+* **uint preSaleCap**
