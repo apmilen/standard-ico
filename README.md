@@ -24,40 +24,40 @@ If you intend to create a presale period that offers tokens for a price of 8 tok
 
 The `StandardSale` contract is initialized with 9 parameters, in this order:
 
-* bytes32 symbol
+* **bytes32 symbol**
 
 The symbol for the token you are making (e.g. "TKN" or "MKR"). You can optionally add a name once the token sale has completed and has been `finalized` by calling the `setName` function on the token. 
 
-* uint total
+* **uint total**
 
 This is the total number of tokens that will be created. This number includes those that will be sold and those that will be sent off to the sale's administrators. This parameter expects a Wad type.
 
-* uint forSale
+* **uint forSale**
 
 This is the number of tokens that will be sold. This parameter expects a Wad type.
 
-* uint cap
+* **uint cap**
 
 This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `per` state variable, which is the number of tokens sold per ETH. This means that `per` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time.
 
-* uint softCap
+* **uint softCap**
 
 This is the total amount of ETH that needs to be accepted before changing the end time of the sale. When `softCap` ETH has been collected, the end time of the sale will change to `softCapTimeLimit` seconds into the future. For example:
 
 Suppose `softCapTimeLimit` is `1 day` and the sale time limit is `5 days`. If the sale starts on October 1st, then it will end on October 6th. If on October 2nd the sale collects `softCap` ETH, then the new end time will be October 3rd.
  
-* uint timeLimit
+* **uint timeLimit**
 
 This is the total length of the sale in seconds. The sale will end `timeLimit` seconds after `startTime` unless the soft cap is breached or all the tokens are sold.
 
-* uint softCapTimeLimit
+* **uint softCapTimeLimit**
 
 This is the new time limit that gets enforced after `softCap` ETH is collected. This time period begins in the same transaction that breaches the soft cap, rather than the start time of the whole sale.
 
-* uint startTime
+* **uint startTime**
 
 This is the timestamp that commences the sale, in seconds. It can be postponed using the `postpone` function.
 
-* address multisig
+* **address multisig**
 
 This is address that is considered the sale operator. The token's ownership is transferred to this address when the sale is finalized, along with any excess tokens that are created and not sold or that remain unsold when the sale concludes.
