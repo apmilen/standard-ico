@@ -10,11 +10,11 @@ This software is distributed **without warranty**. I do accept liability for any
 
 ### IMPORTANT NOTE ON NUMERICAL TYPES
 
-Any user-provided `uint` type that refers to an amount of tokens (e.g. a balance, the total supply, the number for sale, etc) or a price (e.g. the token price per ETH during the presale) assumes you are using a [Dappsys standard](https://blog.dapphub.com/ds-math/) `Wad` type. This means the contract assumes you will be representing a decimal number with 18 digits of precision as an integer. For example:
+The contract assumes that any user-provided `uint` type that refers to an amount of tokens (e.g. a balance, the total supply, the number for sale, etc), ETH (e.g. `msg.value`), or a price (e.g. the token price per ETH during the presale) is a [Dappsys standard](https://blog.dapphub.com/ds-math/) `Wad` type. This means the contract assumes you will be representing a decimal number with 18 digits of precision as an integer. For example:
 
 12 tokens would be 12000000000000000000
 
-3.14159265 would be 3141592650000000000
+3.14159265 tokens would be 3141592650000000000
 
 It is very important that you create a proper Wad type number when providing data that references tokens or prices. Otherwise the token sale might work very differently that you are expecting. For example:
 
@@ -30,12 +30,34 @@ The symbol for the token you are making (e.g. "TKN" or "MKR"). You can optionall
 
 * uint total
 
-This is the total number of 
+This is the total number of tokens that will be created. This number includes those that will be sold and those that will be sent off to the sale's administrators. This parameter expects a Wad type.
 
 * uint forSale
+
+This is the number of tokens that will be sold. This parameter expects a Wad type.
+
 * uint cap
+
+This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `per` state variable, which is the number of tokens sold per ETH. This means that `per` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time.
+
 * uint softCap
+
+This is the total amount of ETH that needs to be accepted before changing the end time of the sale. When `softCap` ETH has been collected, the end time of the sale will change to `softCapTimeLimit` seconds into the future. For example:
+
+Suppose `softCapTimeLimit` is `1 day` and the sale time limit is `5 days`. If the sale starts on October 1st, then it will end on October 6th. If on October 2nd the sale collects `softCap` ETH, then the new end time will be October 3rd.
+ 
 * uint timeLimit
+
+This is the total length of the sale in seconds. The sale will end `timeLimit` seconds after `startTime` unless the soft cap is breached or all the tokens are sold.
+
 * uint softCapTimeLimit
+
+This is the new time limit that gets enforced after `softCap` ETH is collected. This time period begins in the same transaction that breaches the soft cap, rather than the start time of the whole sale.
+
 * uint startTime
+
+This is the timestamp that commences the sale, in seconds. It can be postponed using the `postpone` function.
+
 * address multisig
+
+This is address that is considered the sale operator. The token's ownership is transferred to this address when the sale is finalized, along with any excess tokens that are created and not sold or that remain unsold when the sale concludes.
