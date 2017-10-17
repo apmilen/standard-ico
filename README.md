@@ -147,6 +147,15 @@ See above.
 
 **uint presaleStartTime**
 
+This is the timestamp that commences the presale, in seconds. The `postpone` and `preDistribute` functions cannot be called after the presale starts.
+
 **uint initPresalePrice**
 
+This price is used to populate the first tranch (which has a floor of 0). We assume that the user wants at least one tranch, or else they would use the `StandardSale`. Tranches are described in detail below under the `addTranch` function.
+
 **uint preSaleCap**
+
+This is the total amount of ETH that will be accepted during the presale. Any ETH that is spoofed with the `preDistribute` function is included in this total as well.
+
+### Functions
+
