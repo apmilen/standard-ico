@@ -198,7 +198,7 @@ contract TwoStageSale is StandardSale {
         preBuy(who, val, false);
     }
 
-    function addTranch(uint floor_, uint price_) public auth {
+    function appendTranch(uint floor_, uint price_) public auth {
 
         require(tranches[size - 1].floor < floor_);
         tranches[size - 1].next = size;

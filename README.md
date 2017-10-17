@@ -1,5 +1,7 @@
 
-This repository contains two standard [Dappsys](http://dappsys.info)-driven token sale contracts. The first one is a standard hard-capped and fixed-price token sale with a time limit and optional soft-cap. The second one adds in a whitelisted presale period where the sale operator can add a series of tranches (in terms of volume) that offer a better price than the public sale. Both contracts accept raw ETH (i.e. not ERC20 Wrapped-ETH) via the fallback function. 
+# Standard Token Sale
+
+This repository contains two standard [Dappsys](http://dappsys.info)-driven token sale contracts. The first one is a hard-capped and fixed-price token sale with a time limit and optional soft-cap. The second one adds in a whitelisted presale period where the sale operator can add a series of tranches (in terms of volume) that offer a better price than the public sale. Both contracts accept raw ETH (i.e. not ERC20 Wrapped-ETH) via the fallback function. 
 
 # NOTICE
 
@@ -48,6 +50,8 @@ This is the total amount of ETH that needs to be accepted before changing the en
 Suppose `softCapTimeLimit` is `1 day` and the sale time limit is `5 days`. If the sale starts on October 1st, then it will end on October 6th. If on October 2nd the sale collects `softCap` ETH, then the new end time will be October 3rd. 
 
 This parameter expects a Wad type.
+
+If you don't want to include a soft-cap, then just set this number equal to `cap`.
  
 **uint timeLimit**
 
@@ -87,7 +91,7 @@ This function will start the functions that are protected by the `stoppable` mod
 
 #### postpone
 
-This function can be used to delay the start and end time of the sale. It can only be called by the sale's owner (usually whoever deployed the contract or whoever they set the owner to) before the sale has started.
+This function can be used to delay the start and end time of the sale. It can only be called by the sale's owner (i.e. whoever deployed the contract or whoever they set the owner to) before the sale has started.
 
 `function postpone(uint startTime_) public auth`
 
@@ -157,5 +161,68 @@ This price is used to populate the first tranch (which has a floor of 0). We ass
 
 This is the total amount of ETH that will be accepted during the presale. Any ETH that is spoofed with the `preDistribute` function is included in this total as well.
 
+This parameter expects a Wad type.
+
+If you don't want to include a presale-cap, then just set this number equal to `cap`.
+
 ### Functions
 
+Since `TwoStageSale` is a child class of `StandardSale` all the functions listed above are also available here. Any additional or overriden functions are listed below:
+
+#### setPresale
+
+This function will modify the presale whitelist for the `who` address. You can use this function to approve an address by setting `what` to `true`, or you can exclude an already approved address by setting `what` to `false`.
+
+`function setPresale(address who, bool what) public auth`
+
+#### postpone
+
+This function can be used to delay the start and end time of the **public** sale. It can only be called by the sale's owner (i.e. whoever deployed the contract or whoever they set the owner to) before the **presale** has started (this is the only difference between this function and the `StandardSale` `postpone` function).
+
+`function postpone(uint startTime_) public auth`
+
+#### preDistribute
+
+This function is used to "spoof" presale activity. If the sale operator accepted ETH before the start of the sale in exchange for a promise of tokens, they can use this function to record that activity as if it had occured during the presale. Sale operators usually have to accept ETH beforehand in order to pay for expenses related to the token sale, such as marketing or legal. The `val` parameter specifies how much ETH the `who` address contributed beforehand. Note: this will give the `who` address the same deal as those who contribute during the presale. If the sale operators promised a different price, they should not consider those tokens for sale and instead distribute them from the excess tokens that get created upon initialization. 
+
+`function preDistribute(address who, uint val) public auth`
+
+#### addTranch
+
+This function will add a new tranch to the presale. A tranch is a window of potential ETH contributions that corresponds to a specific price. For example:
+
+* contributions between 00 and 09.999999999999999999 ETH get a 1% better price
+* contributions between 10 and 29.999999999999999999 ETH get a 3% better price
+* contributions between 30 and 59.999999999999999999 ETH get a 5% better price
+* contributions between 60 and `preSaleCap` get an 8% better price
+
+Notice that the round number is the floor value for each tranch in the example above. This is because tranches are denominated by their floor value. When a contributer sends ETH to the presale, the contract loops through each tranch until it finds a floor value that is greater than the contributed ETH or reaches the end (it then chooses the previous or last tranch, respectively). Importantly, this means that during the presale the fallback function does _not have constant time complexity_. There is no contract enforced limit on how many tranches the operators can add, but it is technically possible to add enough that large contributors will run out of gas before the fallback function can find their right tranch. In practice it is very unlikely that anyone will encounter this problem, as sale operators should usually only need to add about six tranches or so.
+
+As the name suggests, this function is append only. This is in the interest of simplicity and keeping the function limited to constant time complexity. The contract will ensure that each new tranch has a floor that is higher than the current end of the list. 
+
+This `price` parameter expects a Wad type. The contract does not enforce any rules about the `price` parameter (i.e. it doesn't make sure that each new tranch is a better deal than the last), so use common sense when adding your tranches or you will have a lot of angry contributors to deal with. 
+
+`function appendTranch(uint floor_, uint price_) public auth`
+
+### Important note on the TwoStageSale hard-cap 
+
+If any tokens are sold during the presale at a price that's better than the value of `per`, then `cap` will no longer be the hard cap of the sale. This is because `per` is calculated as `forSale` divided by `cap`, but if tokens are sold at a better price during the presale then `remaining_tokens * per` will be less than `cap`. This means the new cap will be `remaining_tokens * per`. An example:
+
+```
+forSale is 10000 TKN
+cap is 1000 ETH
+per is forSale/cap = 10 TKN/ETH
+
+6000 TKN are sold for 500 ETH during the presale
+At the start of the public sale there are 4000 TKN for sale at a price of 10 TKN/ETH
+If all are sold, the contract will collect 400 ETH
+The total ETH collected will be 900 ETH
+```
+
+The author chose this format in the interest of simplicity and continuous contract architecture. If you just want the presale component to guarantee access for certain address rather than give a better price, setting `initPresalePrice` to `per` will cause `cap` to actually serve as the hard-cap.
+
+## Provocative Opinions
+
+1. If your token is only used to pay for services in your dapp, it is worse than useless. The author of this contract works for a [stablecoin project](https://makerdao.com) and will likely replace your dapp with a Dai-driven version within a few years. Please either try to come up with a better idea or stay away from smart contract development.
+
+2. This token sale is intentionally boring in an effort to cover the requirements of as many sale operators as possible. It incentivizes needlessly high gas fees by rewarding the initial participants with the opportunity to "flip" these tokens on the secondary market. So lame! Please consider a more interesting and fair sale format such as an auction or continuous token sale model instead of using this contract.

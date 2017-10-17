@@ -366,11 +366,11 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertTrue(sale.presale(user1));
     }
 
-    function testAddTranch() public {
+    function testAppendTranch() public {
         assertEq(sale.size(), 1);
         var (next, floor, price) = sale.tranches(0);
         assertEq(price, 8.08 ether);
-        sale.addTranch(2 ether, 8.16 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
         assertEq(sale.size(), 2);
         (next, floor, price) = sale.tranches(0);
         assertEq(price, 8.08 ether);
@@ -380,9 +380,9 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertEq(price, 8.16 ether);
     }
 
-    function testFailAddTranch() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(1 ether, 8.32 ether);
+    function testFailAppendTranch() public {
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(1 ether, 8.32 ether);
     }
 
     function testPreDistribute() public {
@@ -431,8 +431,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testHighestTranch() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(4 ether, 8.32 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(4 ether, 8.32 ether);
         sale.setPresale(this, true);
         sale.addTime(1);
         exec(sale, 4 ether);
@@ -440,8 +440,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testHighestTranchNotExact() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(4 ether, 8.32 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(4 ether, 8.32 ether);
         sale.setPresale(this, true);
         sale.addTime(1);
         exec(sale, 4.01 ether);
@@ -449,8 +449,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testMiddleTranch() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(4 ether, 8.32 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(4 ether, 8.32 ether);
         sale.setPresale(this, true);
         sale.addTime(1);
         exec(sale, 2 ether);
@@ -458,8 +458,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testMiddleTranchNotExact() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(4 ether, 8.32 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(4 ether, 8.32 ether);
         sale.setPresale(this, true);
         sale.addTime(1);
         exec(sale, 2.01 ether);
@@ -467,8 +467,8 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testLowestTranch() public {
-        sale.addTranch(2 ether, 8.16 ether);
-        sale.addTranch(4 ether, 8.32 ether);
+        sale.appendTranch(2 ether, 8.16 ether);
+        sale.appendTranch(4 ether, 8.32 ether);
         sale.setPresale(this, true);
         sale.addTime(1);
         exec(sale, 1 ether);
@@ -520,7 +520,9 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertEq(user1.balance, 9500 ether);
     }
 
-    // function testRegularBuy
+    // function testRegularBuy() public {
+        
+    // }
 
 
 }
