@@ -520,9 +520,32 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertEq(user1.balance, 9500 ether);
     }
 
-    // function testRegularBuy() public {
-        
-    // }
+    function testRegularBuy() public {
+        sale.addTime(1 days);
+        user1.doBuy(19 ether);
+        assertEq(token.balanceOf(user1), 152 ether);
+        assertEq(owner.balance, 19 ether);
+
+        exec(sale, 11 ether);
+        assertEq(token.balanceOf(this), 88 ether);
+        assertEq(owner.balance, 30 ether);
+    }
+
+    function testUnsyncedPer() public {
+        sale.addTime(1);
+
+        sale.setPresale(user1, true);
+
+        user1.doBuy(200 ether);
+        assertEq(token.balanceOf(user1), 1616 ether);
+        assertEq(owner.balance, 200 ether);
+
+        sale.addTime(1 days);
+
+        user2.doBuy(800 ether);
+        assertEq(token.balanceOf(user2), 6384 ether);
+        assertEq(owner.balance, 998 ether);
+    }
 
 
 }
