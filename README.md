@@ -65,20 +65,38 @@ This is address that is considered the sale operator. The token's ownership is t
 
 ### Functions
 
+#### setOwner
+
+This function will change the sale's `owner` variable. The owner is allowed to call functions that are protected by the `auth` modifier, such as `postpone` or `finalize`
+
+`function setOwner(address owner_) public auth`
+
+#### stop
+
+This function will stop the functions that are protected by the `stoppable` modifier. In the case of this sale, The fallback function is the only user-accessible entrypoint, thus it is the only stoppable function.
+
+`function stop() public auth note`
+
+#### start
+
+This function will start the functions that are protected by the `stoppable` modifier. In the case of this sale, The fallback function is the only user-accessible entrypoint, thus it is the only stoppable function.
+
+`function start() public auth note`
+
 #### postpone
 
 This function can be used to delay the start and end time of the sale. It can only be called by the sale's owner (usually whoever deployed the contract or whoever they set the owner to) before the sale has started.
 
-**Signature:** `function postpone(uint startTime_) public auth`
+`function postpone(uint startTime_) public auth`
 
 #### finalize
 
 This function should be called when the sale has completed. It will transfer ownership of the token to the `multisig` address. It will also send any unsold tokens to the `multisig` address.
 
-**Signature:** `function finalize() public auth`
+`function finalize() public auth`
 
 #### transferTokens
 
 This function can transfer any tokens that the contract has erroneously received. Sometimes users mishandle their wallets and send an ERC20 token to the contract by mistake. This function allows the sale adminstrators to help out and return the tokens.
 
-**Signature:** `function transferTokens(address dst, uint wad, address tkn_) public auth`
+`function transferTokens(address dst, uint wad, address tkn_) public auth`
