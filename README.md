@@ -1,14 +1,13 @@
-# Standard Token Sale
 
 This repository contains two standard [Dappsys](http://dappsys.info)-driven token sale contracts. The first one is a standard hard-capped and fixed-price token sale with a time limit and optional soft-cap. The second one adds in a whitelisted presale period where the sale operator can add a series of tranches (in terms of volume) that offer a better price than the public sale. Both contracts accept raw ETH (i.e. not ERC20 Wrapped-ETH) via the fallback function. 
 
-## NOTICE
+# NOTICE
 
 This software is distributed **without warranty**. I do accept liability for anyone's token sale. If you don't perform the necessary steps to register your token with the proper authorities, that's entirely your own fault. Please follow the law when selling financial instruments to the public.
 
-## Reference
+# Reference
 
-### IMPORTANT NOTE ON NUMERICAL TYPES
+## IMPORTANT NOTE ON NUMERICAL TYPES
 
 The contract assumes that any user-provided `uint` type that refers to an amount of tokens (e.g. a balance, the total supply, the number for sale, etc), ETH (e.g. `msg.value`), or a price (e.g. the token price per ETH during the presale) is a [Dappsys standard](https://blog.dapphub.com/ds-math/) `Wad` type. This means the contract assumes you will be representing a decimal number with 18 digits of precision as an integer. For example:
 
@@ -20,7 +19,9 @@ It is very important that you create a proper Wad type number when providing dat
 
 If you intend to create a presale period that offers tokens for a price of 8 tokens per ETH, but you create a `TwoStageSale` that sets `initPresalePrice` to `8` instead of `8000000000000000000`, the actual price would actually be 0.000000000000000008 tokens per ETH!
 
-### StandardSale
+## StandardSale
+
+### Set up
 
 The `StandardSale` contract is initialized with 9 parameters, in this order:
 
@@ -61,3 +62,23 @@ This is the timestamp that commences the sale, in seconds. It can be postponed u
 * **address multisig**
 
 This is address that is considered the sale operator. The token's ownership is transferred to this address when the sale is finalized, along with any excess tokens that are created and not sold or that remain unsold when the sale concludes.
+
+### Functions
+
+#### postpone
+
+This function can be used to delay the start and end time of the sale. It can only be called by the sale's owner (usually whoever deployed the contract or whoever they set the owner to) before the sale has started.
+
+**Signature:** `function postpone(uint startTime_) public auth`
+
+#### finalize
+
+This function should be called when the sale has completed. It will transfer ownership of the token to the `multisig` address. It will also send any unsold tokens to the `multisig` address.
+
+**Signature:** `function finalize() public auth`
+
+#### transferTokens
+
+This function can transfer any tokens that the contract has erroneously received. Sometimes users mishandle their wallets and send an ERC20 token to the contract by mistake. This function allows the sale adminstrators to help out and return the tokens.
+
+**Signature:** `function transferTokens(address dst, uint wad, address tkn_) public auth`
