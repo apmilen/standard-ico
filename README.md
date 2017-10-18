@@ -5,7 +5,7 @@ This repository contains two standard [Dappsys](http://dappsys.info)-driven toke
 
 # NOTICE
 
-This software is distributed **without warranty**. I do accept liability for anyone's token sale. If you don't perform the necessary steps to register your token with the proper authorities, that's entirely your own fault. Please follow the law when selling financial instruments to the public.
+This software is distributed **without warranty**. I do not accept liability for anyone's token sale. If you don't perform the necessary steps to register your token with the proper authorities, that's entirely your own fault. Please follow the law when selling financial instruments to the public.
 
 # Reference
 
