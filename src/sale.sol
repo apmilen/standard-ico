@@ -4,10 +4,9 @@ import "ds-token/token.sol";
 import "ds-auth/auth.sol";
 import "ds-math/math.sol";
 import "ds-note/note.sol";
-import "ds-exec/exec.sol";
 import "ds-stop/stop.sol";
 
-contract StandardSale is DSNote, DSStop, DSMath, DSExec {
+contract StandardSale is DSNote, DSStop, DSMath {
 
     DSToken public token;
 
@@ -24,7 +23,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
     address public multisig;
 
-    uint public per; // Token per ETH
+    uint public rate; // Token per ETH
     uint public collected;
 
     function StandardSale(
@@ -51,7 +50,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
         multisig = multisig_;
 
-        per = wdiv(forSale, cap);
+        rate = wdiv(forSale, cap);
 
         token.mint(total);
         token.push(multisig, sub(total, forSale));
@@ -70,6 +69,11 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     }
 
     function buy(uint price, address who, uint val, bool send) internal {
+        
+        /**********************
+            ETH Refund Logic
+        ***********************/
+
         uint requested = wmul(val, price);
         uint keep = val;
 
@@ -78,9 +82,29 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
             keep = wdiv(requested, price);
         }
 
+        // return excess ETH to the user
+        uint refund = sub(val, keep);
+        if(refund > 0 && send) {
+            who.transfer(refund); // .transfer doesn't forward enough gas for re-entrancy attack
+        }
+
+
+        /*********************
+            Asset Transfers
+        **********************/
+
         token.start();
         token.push(who, requested);
         token.stop();
+
+        if (send) {
+            multisig.transfer(keep); // send collected ETH to multisig
+        }
+
+
+        /********************
+            End Time Logic
+        *********************/
 
         if (token.balanceOf(this) == 0) {
             endTime = time();
@@ -92,21 +116,12 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
 
         collected = add(collected, keep);
 
-        if (send) {
-            exec(multisig, keep); // send collected ETH to multisig
-        }
-
-        // return excess ETH to the user
-        uint refund = sub(val, keep);
-        if(refund > 0 && send) {
-            exec(who, refund);
-        }
     }
 
     function() public payable stoppable note {
 
         require(time() >= startTime && time() < endTime);
-        buy(per, msg.sender, msg.value, true);
+        buy(rate, msg.sender, msg.value, true);
     }
 
     function finalize() public auth {
@@ -123,7 +138,7 @@ contract StandardSale is DSNote, DSStop, DSMath, DSExec {
     }
 
     // because sometimes people get a little too excited and send the wrong token
-    function transferTokens(address dst, uint wad, address tkn_) public auth {
+    function transferTokens(address tkn_, address dst, uint wad) public auth {
         ERC20 tkn = ERC20(tkn_);
         tkn.transfer(dst, wad);
     }
@@ -134,13 +149,12 @@ contract TwoStageSale is StandardSale {
 
     mapping (address => bool) public presale;
 
-    struct priceInfo {
-        uint next;
+    struct Tranch {
         uint floor;
-        uint price;
+        uint rate;
     }
-    mapping(uint => priceInfo) public tranches;
-    uint public size;
+
+    Tranch[] public tranches;
 
     uint public presaleStartTime;
     uint public preSaleCap;
@@ -157,7 +171,7 @@ contract TwoStageSale is StandardSale {
         uint startTime_,
         address multisig_,
         uint presaleStartTime_,
-        uint initPresalePrice,
+        uint initPresaleRate,
         uint preSaleCap_) 
     StandardSale(
         symbol, 
@@ -170,8 +184,7 @@ contract TwoStageSale is StandardSale {
         startTime_,
         multisig_) public {
         
-        tranches[size] = priceInfo(0, 0, initPresalePrice);
-        size++;
+        tranches.push(Tranch(0, initPresaleRate));
 
         require(presaleStartTime_ < startTime_);
         presaleStartTime = presaleStartTime_;
@@ -198,40 +211,54 @@ contract TwoStageSale is StandardSale {
         preBuy(who, val, false);
     }
 
-    function appendTranch(uint floor_, uint price_) public auth {
-
-        require(tranches[size - 1].floor < floor_);
-        tranches[size - 1].next = size;
-        tranches[size] = priceInfo(0, floor_, price_);
-        size++;
+    function appendTranch(uint floor_, uint rate_) public auth {
+        require(tranches[tranches.length - 1].floor < floor_);
+        tranches.push(Tranch(floor_, rate_));
     }
 
     function preBuy(address who, uint val, bool send) internal {
         
+
+        /**********************
+            ETH Refund Logic
+        ***********************/
+
+        uint keep = val;
+        if (add(keep, preCollected) > preSaleCap) {
+            keep = sub(preSaleCap, preCollected);
+        }
+
+        // return excess ETH to the user
+        uint refund = sub(val, keep);
+        if(refund > 0 && send) {
+            who.transfer(refund);
+        }
+
+        preCollected = add(preCollected, keep);
+
+
+        /*************************
+            Pre-sale Rate Logic
+        **************************/
+
+
         bool found = false;
         uint id = 0;
-        uint count = 0;
-        uint prev = 0;
-        while (!found) {
-            count++;
+        for (uint i = 0; !found; i++) {
 
-            if (tranches[id].floor > val) {
+            if (tranches[i].floor > keep) {
                 found = true;
-                id = prev;
-            } else if (tranches[id].floor == val || count == size) {
+                id = i - 1;
+            } else if (tranches[i].floor == keep || i+1 == tranches.length) {
                 found = true;
-            } else {
-                prev = id;
-                id = tranches[id].next;
+                id = i;
             }
 
         }
 
-        uint price = tranches[id].price;
+        uint presaleRate = tranches[id].rate;
 
-        preCollected = add(preCollected, val);
-
-        buy(price, who, val, send);
+        buy(presaleRate, who, keep, send);
     }
 
     function() public payable stoppable note {
@@ -240,21 +267,9 @@ contract TwoStageSale is StandardSale {
 
         if (time() < startTime) {
             require(presale[msg.sender]);
-
-            uint keep = msg.value;
-            if (add(keep, preCollected) > preSaleCap) {
-                keep = sub(preSaleCap, preCollected);
-            }
-
-            preBuy(msg.sender, keep, true);
-
-            // return excess ETH to the user
-            uint refund = sub(msg.value, keep);
-            if(refund > 0) {
-                exec(msg.sender, refund);
-            }
+            preBuy(msg.sender, msg.value, true);
         } else {
-            buy(per, msg.sender, msg.value, true);
+            buy(rate, msg.sender, msg.value, true);
         }
 
     }

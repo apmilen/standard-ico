@@ -135,7 +135,7 @@ contract StandardSaleTest is DSTest, DSExec {
         test.mint(1 ether);
         test.push(sale, 1 ether);
         assertEq(test.balanceOf(this), 0);
-        sale.transferTokens(this, 1 ether, test);
+        sale.transferTokens(test, this, 1 ether);
     }
 
     // TODO: testFailClaimTokens
@@ -294,7 +294,7 @@ contract TestableTwoStageSale is TwoStageSale {
         uint startTime_,
         address multisig_,
         uint presaleStartTime_,
-        uint initPresalePrice,
+        uint initPresaleRate,
         uint preSaleCap_)
     TwoStageSale(
         symbol, 
@@ -307,7 +307,7 @@ contract TestableTwoStageSale is TwoStageSale {
         startTime_,
         multisig_,
         presaleStartTime_,
-        initPresalePrice,
+        initPresaleRate,
         preSaleCap_) public {
         localTime = now;
     }
@@ -367,17 +367,14 @@ contract TwoStageSaleTest is DSTest, DSExec {
     }
 
     function testAppendTranch() public {
-        assertEq(sale.size(), 1);
-        var (next, floor, price) = sale.tranches(0);
-        assertEq(price, 8.08 ether);
+        var (floor, rate) = sale.tranches(0);
+        assertEq(rate, 8.08 ether);
         sale.appendTranch(2 ether, 8.16 ether);
-        assertEq(sale.size(), 2);
-        (next, floor, price) = sale.tranches(0);
-        assertEq(price, 8.08 ether);
-        assertEq(next, 1);
-        (next, floor, price) = sale.tranches(1);
+        (floor, rate) = sale.tranches(0);
+        assertEq(rate, 8.08 ether);
+        (floor, rate) = sale.tranches(1);
         assertEq(floor, 2 ether);
-        assertEq(price, 8.16 ether);
+        assertEq(rate, 8.16 ether);
     }
 
     function testFailAppendTranch() public {
@@ -531,7 +528,7 @@ contract TwoStageSaleTest is DSTest, DSExec {
         assertEq(owner.balance, 30 ether);
     }
 
-    function testUnsyncedPer() public {
+    function testUnsyncedRate() public {
         sale.addTime(1);
 
         sale.setPresale(user1, true);

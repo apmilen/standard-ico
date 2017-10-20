@@ -41,7 +41,7 @@ This is the number of tokens that will be sold. This parameter expects a Wad typ
 
 **uint cap**
 
-This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `per` state variable, which is the number of tokens sold per ETH. This means that `per` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time. This parameter expects a Wad type.
+This is the total amount of ETH that will be accepted before terminating the sale. This number is divided by the `forSale` parameter to create the `rate` state variable, which is the number of tokens sold per ETH. This means that `rate` is the price. The system subtracts `forSale` from `total` and sends the remaining tokens to the `multisig` address, assuming they will be used at some later time. This parameter expects a Wad type.
 
 **uint softCap**
 
@@ -206,12 +206,12 @@ This `price` parameter expects a Wad type. The contract does not enforce any rul
 
 ### Important note on the TwoStageSale hard-cap 
 
-If any tokens are sold during the presale at a price that's better than the value of `per`, then `cap` will no longer be the hard cap of the sale. This is because `per` is calculated as `forSale` divided by `cap`, but if tokens are sold at a better price during the presale then `remaining_tokens * per` will be less than `cap`. This means the new cap will be `remaining_tokens * per`. An example:
+If any tokens are sold during the presale at a price that's better than the value of `rate`, then `cap` will no longer be the hard cap of the sale. This is because `rate` is calculated as `forSale` divided by `cap`, but if tokens are sold at a better price during the presale then `remaining_tokens * rate` will be less than `cap`. This means the new cap will be `remaining_tokens * rate`. An example:
 
 ```
 forSale is 10000 TKN
 cap is 1000 ETH
-per is forSale/cap = 10 TKN/ETH
+rate is forSale/cap = 10 TKN/ETH
 
 6000 TKN are sold for 500 ETH during the presale
 At the start of the public sale there are 4000 TKN for sale at a price of 10 TKN/ETH
@@ -219,7 +219,7 @@ If all are sold, the contract will collect 400 ETH
 The total ETH collected will be 900 ETH
 ```
 
-The author chose this format in the interest of simplicity and continuous contract architecture. If you just want the presale component to guarantee access for certain address rather than give a better price, setting `initPresalePrice` to `per` will cause `cap` to actually serve as the hard-cap.
+The author chose this format in the interest of simplicity and continuous contract architecture. If you just want the presale component to guarantee access for certain address rather than give a better price, setting `initPresalePrice` to `rate` will cause `cap` to actually serve as the hard-cap.
 
 ## Provocative Opinions
 
