@@ -242,18 +242,15 @@ contract TwoStageSale is StandardSale {
         **************************/
 
 
-        bool found = false;
-        uint id = 0;
-        for (uint i = 0; !found; i++) {
-
-            if (tranches[i].floor > keep) {
-                found = true;
-                id = i - 1;
-            } else if (tranches[i].floor == keep || i+1 == tranches.length) {
-                found = true;
-                id = i;
+        for (uint id = 0; id < tranches.length; id++) {
+            
+            if (id + 1 == tranches.length) {
+                break;
+            } else if (tranches[id].floor == keep) {
+                break;
+            } else if (tranches[id + 1].floor > keep) {
+                break;
             }
-
         }
 
         uint presaleRate = tranches[id].rate;
